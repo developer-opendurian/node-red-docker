@@ -38,7 +38,8 @@ RUN ./known_hosts.sh /etc/ssh/ssh_known_hosts && rm /usr/src/node-red/known_host
 # package.json contains Node-RED NPM module and node dependencies
 COPY package.json .
 COPY flows.json /data
-
+COPY settings.js /data/settings.js
+COPY settings.js /data/
 #### Stage BUILD #######################################################################################################
 FROM base AS build
 
@@ -47,7 +48,10 @@ RUN apk add --no-cache --virtual buildtools build-base linux-headers udev python
     npm install --unsafe-perm --no-update-notifier --no-fund --only=production && \
     /tmp/remove_native_gpio.sh && \
     cp -R node_modules prod_node_modules
-
+RUN npm install node-red-contrib-re-postgres
+RUN npm install node-red-contrib-postgresql
+RUN npm install node-red-contrib-amqp
+RUN npm install node-red-contrib-amqp-ack
 #### Stage RELEASE #####################################################################################################
 FROM base AS RELEASE
 ARG BUILD_DATE
@@ -71,12 +75,11 @@ LABEL org.label-schema.build-date=${BUILD_DATE} \
     authors="Dave Conway-Jones, Nick O'Leary, James Thomas, Raymond Mouthaan"
 
 COPY --from=build /usr/src/node-red/prod_node_modules ./node_modules
-
+RUN chown -R 1000:1000 /usr/src/node-red
 # Chown, install devtools & Clean up
 RUN chown -R node-red:root /usr/src/node-red && \
     /tmp/install_devtools.sh && \
     rm -r /tmp/*
-
 USER node-red
 
 # Env variables
@@ -90,7 +93,11 @@ ENV NODE_RED_VERSION=$NODE_RED_VERSION \
 
 # Expose the listening port of node-red
 EXPOSE 1880
-
+COPY settings.js /data/settings.js
+RUN npm install node-red-contrib-re-postgres
+RUN npm install node-red-contrib-postgresql
+RUN npm install node-red-contrib-amqp
+RUN npm install node-red-contrib-amqp-ack
 # Add a healthcheck (default every 30 secs)
 # HEALTHCHECK CMD curl http://localhost:1880/ || exit 1
 
